@@ -1,0 +1,571 @@
+<?php
+function getRuzgarYonu($derece) {
+    $yonler = [
+        'Kuzey' => [348.75, 11.25],
+        'Kuzey-Kuzeydoğu' => [11.25, 33.75],
+        'Kuzeydoğu' => [33.75, 56.25],
+        'Doğu-Kuzeydoğu' => [56.25, 78.75],
+        'Doğu' => [78.75, 101.25],
+        'Doğu-Güneydoğu' => [101.25, 123.75],
+        'Güneydoğu' => [123.75, 146.25],
+        'Güney-Güneydoğu' => [146.25, 168.75],
+        'Güney' => [168.75, 191.25],
+        'Güney-Güneybatı' => [191.25, 213.75],
+        'Güneybatı' => [213.75, 236.25],
+        'Batı-Güneybatı' => [236.25, 258.75],
+        'Batı' => [258.75, 281.25],
+        'Batı-Kuzeybatı' => [281.25, 303.75],
+        'Kuzeybatı' => [303.75, 326.25],
+        'Kuzey-Kuzeybatı' => [326.25, 348.75]
+    ];
+
+    // Kuzey yönü için özel kontrol (348.75-360 veya 0-11.25 derece arası)
+    if ($derece >= 348.75 || $derece <= 11.25) {
+        return 'Kuzey';
+    }
+
+    foreach ($yonler as $yon => $aralik) {
+        if ($derece >= $aralik[0] && $derece <= $aralik[1]) {
+            return $yon;
+        }
+    }
+    
+    return 'Bilinmeyen Yön'; // Eğer hiçbir aralığa uymuyorsa
+}
+
+// OpenWeatherMap API için gerekli değişkenler
+$lat = "39.9237";
+$lon = "32.8067";
+$api_url = "https://api.openweathermap.org/data/2.5/weather?lat={$lat}&lon={$lon}&appid=8cf4e549867e95c800578f7c703f42b6&units=metric&lang=tr";
+
+// OpenWeatherMap verilerini al
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $api_url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$response = curl_exec($ch);
+curl_close($ch);
+$data = json_decode($response, true);
+
+// API yanıt kontrolü
+if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
+    die('OpenWeatherMap API Hatası');
+}
+?>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Hava Durumu - Windy Harita</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .weather-data {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            max-width: 300px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .windy-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+        .map-buttons {
+            display: flex;
+            gap: 5px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .map-button {
+            position: relative;  /* Tooltip için gerekli */
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background-color: transparent;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        .map-button:hover {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .map-button.active {
+            background-color: #4a90e2;
+            color: white;
+        }
+        #location-status {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+        /* Tooltip stilleri */
+        .map-button::after {
+            content: attr(title) " Haritası";
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .map-button:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        .weather-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .weather-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #444;
+        }
+        .weather-item i {
+            width: 20px;
+            color: #4a90e2;
+            text-align: center;
+        }
+        .weather-item .label {
+            font-size: 12px;
+            color: #666;
+            display: block;
+        }
+        .weather-item .value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        .weather-location {
+            grid-column: 1 / -1;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .weather-location .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #222;
+        }
+        /* İkon altı yazılar için */
+        .map-button {
+            flex-direction: column;
+            width: 60px;
+            height: 55px;
+            gap: 3px;
+        }
+        .map-button span {
+            font-size: 10px;
+            color: #666;
+        }
+        .map-button.active span {
+            color: white;
+        }
+        /* Refresh kontrolü için */
+        .refresh-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .refresh-button {
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 50%;
+            background-color: transparent;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .refresh-button i {
+            font-size: 14px;
+        }
+        .refresh-button span {
+            font-size: 10px;
+        }
+        .refresh-button:hover {
+            background-color: #f0f0f0;
+        }
+        .refresh-button.active {
+            background-color: #4a90e2;
+            color: white;
+        }
+        .refresh-divider {
+            width: 1px;
+            height: 25px;
+            background-color: rgba(0,0,0,0.1);
+        }
+        /* Loading screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4a90e2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="map-controls">
+        <div class="map-buttons">
+            <button class="map-button active" onclick="changeOverlay('fwi')" title="Yangın Riski">
+                <i class="fas fa-fire"></i>
+                <span>Yangın</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('temp')" title="Sıcaklık">
+                <i class="fas fa-temperature-high"></i>
+                <span>Sıcaklık</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('wind')" title="Rüzgar">
+                <i class="fas fa-wind"></i>
+                <span>Rüzgar</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('rain')" title="Yağış">
+                <i class="fas fa-cloud-rain"></i>
+                <span>Yağış</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('rainAccu')" title="Yağış Birikimi">
+                <i class="fas fa-cloud-showers-heavy"></i>
+                <span>Yağış Birikimi</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('rh')" title="Nem">
+                <i class="fas fa-tint"></i>
+                <span>Nem</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('waves')" title="Dalga">
+                <i class="fas fa-water"></i>
+                <span>Dalga</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('drought40')" title="Kuraklık">
+                <i class="fas fa-sun"></i>
+                <span>Kuraklık</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('satellite')" title="Uydu">
+                <i class="fas fa-satellite"></i>
+                <span>Uydu</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="weather-data">
+        <div class="weather-info">
+            <div class="weather-item weather-location">
+                <i class="fas fa-map-marker-alt"></i>
+                <div>
+                    <span class="label">Konum</span>
+                    <span class="value">Beştepe, <?php echo ($data['name'] ?? 'Bilinmiyor'); ?></span>
+                </div>
+            </div>
+            
+            <div class="weather-item">
+                <i class="fas fa-temperature-high"></i>
+                <div>
+                    <span class="label">Sıcaklık</span>
+                    <span class="value"><?php echo ($data['main']['temp'] ?? 'N/A') . "°C"; ?></span>
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <i class="fas fa-temperature-low"></i>
+                <div>
+                    <span class="label">Hissedilen</span>
+                    <span class="value"><?php echo ($data['main']['feels_like'] ?? 'N/A') . "°C"; ?></span>
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <i class="fas fa-tint"></i>
+                <div>
+                    <span class="label">Nem</span>
+                    <span class="value"><?php echo ($data['main']['humidity'] ?? 'N/A') . "%"; ?></span>
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <i class="fas fa-wind"></i>
+                <div>
+                    <span class="label">Rüzgar Hızı</span>
+                    <span class="value"><?php echo ($data['wind']['speed'] ?? 'N/A') . " m/s"; ?></span>
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <i class="fas fa-compass"></i>
+                <div>
+                    <span class="label">Rüzgar Yönü</span>
+                    <span class="value"><?php echo (isset($data['wind']['deg']) ? getRuzgarYonu($data['wind']['deg']) : 'N/A'); ?></span>
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <i class="fas fa-cloud"></i>
+                <div>
+                    <span class="label">Hava Durumu</span>
+                    <span class="value"><?php echo ($data['weather'][0]['description'] ?? 'N/A'); ?></span>
+                </div>
+            </div>
+
+            <div class="weather-item">
+                <i class="fas fa-tachometer-alt"></i>
+                <div>
+                    <span class="label">Basınç</span>
+                    <span class="value"><?php echo ($data['main']['pressure'] ?? 'N/A') . " hPa"; ?></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="location-status">Konum bilgisi alınıyor...</div>
+    <iframe id="windy-map" class="windy-map" 
+        src="https://embed.windy.com/embed2.html?lat=39.9237&lon=32.8067&zoom=8&level=surface&overlay=fwi&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=39.9237&detailLon=32.8067&metricWind=default&metricTemp=default&radarRange=-1" 
+        frameborder="0">
+    </iframe>
+
+    <!-- Loading Screen -->
+    <div class="loading-screen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Refresh Controls -->
+    <div class="refresh-controls">
+        <button class="refresh-button" onclick="setRefreshInterval(10)" title="10 saniye">
+            <i class="fas fa-clock"></i>
+            <span>10sn</span>
+        </button>
+        <button class="refresh-button" onclick="setRefreshInterval(30)" title="30 saniye">
+            <i class="fas fa-clock"></i>
+            <span>30sn</span>
+        </button>
+        <button class="refresh-button active" onclick="setRefreshInterval(60)" title="1 dakika">
+            <i class="fas fa-clock"></i>
+            <span>1dk</span>
+        </button>
+        <div class="refresh-divider"></div>
+        <button class="refresh-button" onclick="refreshData()" title="Şimdi Yenile">
+            <i class="fas fa-sync-alt"></i>
+            <span>Yenile</span>
+        </button>
+    </div>
+
+    <script>
+        // Sadece overlay'i tutalım, diğer değerleri Windy'nin kendisinden alalım
+        let currentOverlay = 'fwi';
+        let mapPosition = {
+            lat: null,
+            lon: null,
+            zoom: null
+        };
+
+        // Windy iframe'inden mevcut konumu al
+        function getCurrentMapPosition() {
+            const windyMap = document.getElementById('windy-map');
+            if (windyMap) {
+                try {
+                    const url = new URL(windyMap.src);
+                    mapPosition.lat = url.searchParams.get('lat');
+                    mapPosition.lon = url.searchParams.get('lon');
+                    mapPosition.zoom = url.searchParams.get('zoom');
+                } catch (error) {
+                    console.error('Harita pozisyonu alınamadı:', error);
+                }
+            }
+        }
+
+        // Katman değiştirme fonksiyonu
+        function changeOverlay(overlay) {
+            currentOverlay = overlay;
+            
+            // Önce mevcut konumu al
+            getCurrentMapPosition();
+            
+            // Butonların active class'ını güncelle
+            document.querySelectorAll('.map-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`[onclick="changeOverlay('${overlay}')"]`).classList.add('active');
+            
+            // Haritayı güncelle - mevcut konumu kullanarak
+            const baseMap = overlay === 'map' ? '&overlay=wind&map=topo' : `&overlay=${overlay}`;
+            const windyUrl = `https://embed.windy.com/embed2.html?lat=${mapPosition.lat || 39.9237}&lon=${mapPosition.lon || 32.8067}&zoom=${mapPosition.zoom || 8}&level=surface${baseMap}&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=${mapPosition.lat || 39.9237}&detailLon=${mapPosition.lon || 32.8067}&metricWind=default&metricTemp=default&radarRange=-1`;
+            
+            const windyMap = document.getElementById('windy-map');
+            if (windyMap) {
+                windyMap.src = windyUrl;
+            }
+        }
+
+        // Sayfa yüklendiğinde çalışacak kod
+        document.addEventListener('DOMContentLoaded', function() {
+            // İlk yükleme
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    currentLat = lat;
+                    currentLon = lon;
+                    
+                    const locationStatus = document.getElementById('location-status');
+                    if (locationStatus) {
+                        locationStatus.innerHTML = `Konum bulundu: ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+                    }
+                    
+                    updateWeatherAndMap(lat, lon);
+                }, function(error) {
+                    const locationStatus = document.getElementById('location-status');
+                    if (locationStatus) {
+                        locationStatus.innerHTML = "Konum alınamadı. Varsayılan konum kullanılıyor (Beştepe).";
+                    }
+                });
+            } else {
+                const locationStatus = document.getElementById('location-status');
+                if (locationStatus) {
+                    locationStatus.innerHTML = "Tarayıcınız konum özelliğini desteklemiyor. Varsayılan konum kullanılıyor (Beştepe).";
+                }
+            }
+
+            // Yenileme zamanlayıcısını başlat
+            setRefreshInterval(60);
+        });
+
+        async function updateWeatherAndMap(lat, lon) {
+            currentLat = lat;
+            currentLon = lon;
+            
+            try {
+                // Hava durumu verilerini güncelle
+                const response = await fetch(`meteo_data.php?lat=${lat}&lon=${lon}`);
+                const data = await response.text();
+                document.getElementById('weather-data').innerHTML = data;
+                
+                // Windy haritasını güncelle
+                updateWindyMap();
+                
+                return Promise.resolve();
+            } catch (error) {
+                console.error('Veri güncelleme hatası:', error);
+                return Promise.reject(error);
+            }
+        }
+
+        function updateWindyMap() {
+            // Topografik harita için özel durum
+            const baseMap = currentOverlay === 'map' ? '&overlay=wind&map=topo' : `&overlay=${currentOverlay}`;
+            
+            const windyUrl = `https://embed.windy.com/embed2.html?lat=${currentLat}&lon=${currentLon}&zoom=8&level=surface${baseMap}&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=${currentLat}&detailLon=${currentLon}&metricWind=default&metricTemp=default&radarRange=-1`;
+            document.getElementById('windy-map').src = windyUrl;
+        }
+
+        function showLoading() {
+            document.querySelector('.loading-screen').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.querySelector('.loading-screen').style.display = 'none';
+        }
+
+        async function refreshData() {
+            showLoading();
+            try {
+                await updateWeatherAndMap(currentLat, currentLon);
+            } catch (error) {
+                console.error('Yenileme hatası:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function setRefreshInterval(seconds) {
+            refreshInterval = seconds;
+            
+            // Update active button
+            document.querySelectorAll('.refresh-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`[onclick="setRefreshInterval(${seconds})"]`)?.classList.add('active');
+            
+            // Clear existing timer
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+            
+            // Set new timer
+            refreshTimer = setInterval(refreshData, seconds * 1000);
+        }
+    </script>
+</body>
+</html>
