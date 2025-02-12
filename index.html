@@ -69,6 +69,25 @@
             padding: 0;
             gap: 2px;
         }
+        .map-button[onclick="changeOverlay('fwi')"] {
+            background-color: rgba(255, 99, 71, 0.1);
+            color: #ff6347;
+        }
+        .map-button[onclick="changeOverlay('fwi')"].active {
+            background-color: #ff6347;
+            color: white;
+            box-shadow: 0 2px 8px rgba(255, 99, 71, 0.3);
+        }
+        .map-button[onclick="changeOverlay('fwi')"] i {
+            font-size: 18px;
+        }
+        .map-button[onclick="changeOverlay('fwi')"] span {
+            font-weight: 500;
+        }
+        .map-button.active {
+            background-color: #4a90e2;
+            color: white;
+        }
         .map-button span {
             font-size: 9px;
             line-height: 1;
