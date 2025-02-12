@@ -13,7 +13,7 @@
         }
         .weather-data {
             position: absolute;
-            top: 10px;
+            top: 70px;
             right: 10px;
             z-index: 1000;
             background-color: rgba(255, 255, 255, 0.9);
@@ -78,19 +78,56 @@
         }
         .refresh-controls {
             position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 10px;
+            right: 10px;
+            transform: none;
             z-index: 1000;
             background-color: rgba(255, 255, 255, 0.9);
-            padding: 8px;
-            border-radius: 25px;
+            padding: 5px;
+            border-radius: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             display: flex;
-            gap: 5px;
+            gap: 2px;
             align-items: center;
             width: auto;
-            max-width: 90%;
+        }
+        .refresh-button {
+            width: 35px;
+            height: 35px;
+            border: none;
+            border-radius: 8px;
+            background-color: transparent;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 0;
+            font-size: 12px;
+        }
+        .refresh-button i {
+            font-size: 14px;
+        }
+        .refresh-button span {
+            font-size: 8px;
+            line-height: 1;
+        }
+        .refresh-button:hover {
+            background-color: rgba(74, 144, 226, 0.1);
+            color: #4a90e2;
+        }
+        .refresh-button.active {
+            background-color: #4a90e2;
+            color: white;
+        }
+        .refresh-divider {
+            width: 1px;
+            height: 20px;
+            background-color: rgba(0,0,0,0.1);
+            margin: 0 2px;
         }
         #location-status {
             position: absolute;
@@ -111,6 +148,13 @@
         
         /* Mobil cihazlar için medya sorguları */
         @media (max-width: 768px) {
+            .refresh-controls {
+                top: auto;
+                bottom: 70px;
+                right: 50%;
+                transform: translateX(50%);
+                padding: 5px;
+            }
             .weather-data {
                 top: auto;
                 bottom: 120px;
@@ -138,9 +182,6 @@
             }
             .map-button span {
                 font-size: 8px;
-            }
-            .refresh-controls {
-                padding: 5px;
             }
             .refresh-button {
                 width: 35px;
@@ -227,12 +268,12 @@
             z-index: 2000;
         }
         .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #4a90e2;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4a90e2;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -365,15 +406,15 @@
     <div class="refresh-controls">
         <button class="refresh-button" onclick="setRefreshInterval(10)" title="10 saniye">
             <i class="fas fa-clock"></i>
-            <span>10sn</span>
+            <span>10s</span>
         </button>
         <button class="refresh-button" onclick="setRefreshInterval(30)" title="30 saniye">
             <i class="fas fa-clock"></i>
-            <span>30sn</span>
+            <span>30s</span>
         </button>
         <button class="refresh-button active" onclick="setRefreshInterval(60)" title="1 dakika">
             <i class="fas fa-clock"></i>
-            <span>1dk</span>
+            <span>60s</span>
         </button>
         <div class="refresh-divider"></div>
         <button class="refresh-button" onclick="refreshData()" title="Şimdi Yenile">
