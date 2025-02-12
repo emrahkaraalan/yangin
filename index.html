@@ -1,56 +1,3 @@
-<?php
-function getRuzgarYonu($derece) {
-    $yonler = [
-        'Kuzey' => [348.75, 11.25],
-        'Kuzey-Kuzeydoğu' => [11.25, 33.75],
-        'Kuzeydoğu' => [33.75, 56.25],
-        'Doğu-Kuzeydoğu' => [56.25, 78.75],
-        'Doğu' => [78.75, 101.25],
-        'Doğu-Güneydoğu' => [101.25, 123.75],
-        'Güneydoğu' => [123.75, 146.25],
-        'Güney-Güneydoğu' => [146.25, 168.75],
-        'Güney' => [168.75, 191.25],
-        'Güney-Güneybatı' => [191.25, 213.75],
-        'Güneybatı' => [213.75, 236.25],
-        'Batı-Güneybatı' => [236.25, 258.75],
-        'Batı' => [258.75, 281.25],
-        'Batı-Kuzeybatı' => [281.25, 303.75],
-        'Kuzeybatı' => [303.75, 326.25],
-        'Kuzey-Kuzeybatı' => [326.25, 348.75]
-    ];
-
-    // Kuzey yönü için özel kontrol (348.75-360 veya 0-11.25 derece arası)
-    if ($derece >= 348.75 || $derece <= 11.25) {
-        return 'Kuzey';
-    }
-
-    foreach ($yonler as $yon => $aralik) {
-        if ($derece >= $aralik[0] && $derece <= $aralik[1]) {
-            return $yon;
-        }
-    }
-    
-    return 'Bilinmeyen Yön'; // Eğer hiçbir aralığa uymuyorsa
-}
-
-// OpenWeatherMap API için gerekli değişkenler
-$lat = "39.9237";
-$lon = "32.8067";
-$api_url = "https://api.openweathermap.org/data/2.5/weather?lat={$lat}&lon={$lon}&appid=8cf4e549867e95c800578f7c703f42b6&units=metric&lang=tr";
-
-// OpenWeatherMap verilerini al
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $api_url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-$response = curl_exec($ch);
-curl_close($ch);
-$data = json_decode($response, true);
-
-// API yanıt kontrolü
-if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
-    die('OpenWeatherMap API Hatası');
-}
-?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -62,6 +9,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
             margin: 0;
             padding: 0;
             overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .weather-data {
             position: absolute;
@@ -69,11 +17,12 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
             right: 10px;
             z-index: 1000;
             background-color: rgba(255, 255, 255, 0.9);
-            padding: 20px;
+            padding: 15px;
             border-radius: 12px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.1);
             max-width: 300px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            width: calc(100% - 40px);
+            font-size: 14px;
         }
         .windy-map {
             position: absolute;
@@ -89,9 +38,13 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
+            width: 90%;
+            max-width: 600px;
         }
         .map-buttons {
             display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 5px;
             background-color: rgba(255, 255, 255, 0.9);
             padding: 5px;
@@ -99,61 +52,119 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .map-button {
-            position: relative;  /* Tooltip için gerekli */
-            width: 40px;
-            height: 40px;
+            position: relative;
+            width: 50px;
+            height: 50px;
             border: none;
             border-radius: 50%;
             background-color: transparent;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
             color: #666;
             transition: all 0.3s ease;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 0;
+            gap: 2px;
         }
-        .map-button:hover {
-            background-color: #f0f0f0;
-            color: #333;
+        .map-button span {
+            font-size: 9px;
+            line-height: 1;
         }
-        .map-button.active {
-            background-color: #4a90e2;
-            color: white;
+        .map-button i {
+            font-size: 16px;
         }
-        #location-status {
+        .refresh-controls {
             position: absolute;
             bottom: 10px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
             background-color: rgba(255, 255, 255, 0.9);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            color: #666;
+            padding: 8px;
+            border-radius: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            width: auto;
+            max-width: 90%;
         }
-        /* Tooltip stilleri */
-        .map-button::after {
-            content: attr(title) " Haritası";
+        #location-status {
             position: absolute;
-            bottom: -30px;
+            bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: #666;
             white-space: nowrap;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .map-button:hover::after {
-            opacity: 1;
-            visibility: visible;
+        
+        /* Mobil cihazlar için medya sorguları */
+        @media (max-width: 768px) {
+            .weather-data {
+                top: auto;
+                bottom: 120px;
+                right: 50%;
+                transform: translateX(50%);
+                width: 85%;
+                max-width: none;
+                font-size: 12px;
+            }
+            .map-controls {
+                top: 5px;
+                width: 95%;
+            }
+            .map-buttons {
+                padding: 3px;
+                gap: 3px;
+            }
+            .map-button {
+                width: 40px;
+                height: 40px;
+                font-size: 12px;
+            }
+            .map-button i {
+                font-size: 14px;
+            }
+            .map-button span {
+                font-size: 8px;
+            }
+            .refresh-controls {
+                padding: 5px;
+            }
+            .refresh-button {
+                width: 35px;
+                height: 35px;
+                font-size: 12px;
+            }
+        }
+        
+        /* Çok küçük ekranlar için ek düzenlemeler */
+        @media (max-width: 360px) {
+            .weather-data {
+                padding: 10px;
+                font-size: 11px;
+            }
+            .map-button {
+                width: 35px;
+                height: 35px;
+            }
+            .map-button i {
+                font-size: 12px;
+            }
+            .map-button span {
+                font-size: 7px;
+            }
         }
         .weather-info {
             display: grid;
@@ -199,59 +210,8 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
             height: 55px;
             gap: 3px;
         }
-        .map-button span {
-            font-size: 10px;
-            color: #666;
-        }
         .map-button.active span {
             color: white;
-        }
-        /* Refresh kontrolü için */
-        .refresh-controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 8px 15px;
-            border-radius: 25px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .refresh-button {
-            width: 45px;
-            height: 45px;
-            border: none;
-            border-radius: 50%;
-            background-color: transparent;
-            cursor: pointer;
-            color: #666;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-        }
-        .refresh-button i {
-            font-size: 14px;
-        }
-        .refresh-button span {
-            font-size: 10px;
-        }
-        .refresh-button:hover {
-            background-color: #f0f0f0;
-        }
-        .refresh-button.active {
-            background-color: #4a90e2;
-            color: white;
-        }
-        .refresh-divider {
-            width: 1px;
-            height: 25px;
-            background-color: rgba(0,0,0,0.1);
         }
         /* Loading screen */
         .loading-screen {
@@ -328,7 +288,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-map-marker-alt"></i>
                 <div>
                     <span class="label">Konum</span>
-                    <span class="value">Beştepe, <?php echo ($data['name'] ?? 'Bilinmiyor'); ?></span>
+                    <span class="value">Yükleniyor...</span>
                 </div>
             </div>
             
@@ -336,7 +296,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-temperature-high"></i>
                 <div>
                     <span class="label">Sıcaklık</span>
-                    <span class="value"><?php echo ($data['main']['temp'] ?? 'N/A') . "°C"; ?></span>
+                    <span class="value">--°C</span>
                 </div>
             </div>
 
@@ -344,7 +304,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-temperature-low"></i>
                 <div>
                     <span class="label">Hissedilen</span>
-                    <span class="value"><?php echo ($data['main']['feels_like'] ?? 'N/A') . "°C"; ?></span>
+                    <span class="value">--°C</span>
                 </div>
             </div>
 
@@ -352,7 +312,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-tint"></i>
                 <div>
                     <span class="label">Nem</span>
-                    <span class="value"><?php echo ($data['main']['humidity'] ?? 'N/A') . "%"; ?></span>
+                    <span class="value">--%</span>
                 </div>
             </div>
 
@@ -360,7 +320,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-wind"></i>
                 <div>
                     <span class="label">Rüzgar Hızı</span>
-                    <span class="value"><?php echo ($data['wind']['speed'] ?? 'N/A') . " m/s"; ?></span>
+                    <span class="value">-- m/s</span>
                 </div>
             </div>
 
@@ -368,7 +328,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-compass"></i>
                 <div>
                     <span class="label">Rüzgar Yönü</span>
-                    <span class="value"><?php echo (isset($data['wind']['deg']) ? getRuzgarYonu($data['wind']['deg']) : 'N/A'); ?></span>
+                    <span class="value">--</span>
                 </div>
             </div>
 
@@ -376,7 +336,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-cloud"></i>
                 <div>
                     <span class="label">Hava Durumu</span>
-                    <span class="value"><?php echo ($data['weather'][0]['description'] ?? 'N/A'); ?></span>
+                    <span class="value">--</span>
                 </div>
             </div>
 
@@ -384,7 +344,7 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
                 <i class="fas fa-tachometer-alt"></i>
                 <div>
                     <span class="label">Basınç</span>
-                    <span class="value"><?php echo ($data['main']['pressure'] ?? 'N/A') . " hPa"; ?></span>
+                    <span class="value">-- hPa</span>
                 </div>
             </div>
         </div>
@@ -423,13 +383,81 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
     </div>
 
     <script>
-        // Sadece overlay'i tutalım, diğer değerleri Windy'nin kendisinden alalım
+        const API_KEY = '8cf4e549867e95c800578f7c703f42b6';
         let currentOverlay = 'fwi';
         let mapPosition = {
-            lat: null,
-            lon: null,
-            zoom: null
+            lat: 39.9237,  // Varsayılan konum (Ankara)
+            lon: 32.8067,
+            zoom: 8
         };
+        let refreshTimer = null;
+        let refreshInterval = 60;
+
+        function getRuzgarYonu(derece) {
+            const yonler = {
+                'Kuzey': [[348.75, 360], [0, 11.25]],
+                'Kuzey-Kuzeydoğu': [[11.25, 33.75]],
+                'Kuzeydoğu': [[33.75, 56.25]],
+                'Doğu-Kuzeydoğu': [[56.25, 78.75]],
+                'Doğu': [[78.75, 101.25]],
+                'Doğu-Güneydoğu': [[101.25, 123.75]],
+                'Güneydoğu': [[123.75, 146.25]],
+                'Güney-Güneydoğu': [[146.25, 168.75]],
+                'Güney': [[168.75, 191.25]],
+                'Güney-Güneybatı': [[191.25, 213.75]],
+                'Güneybatı': [[213.75, 236.25]],
+                'Batı-Güneybatı': [[236.25, 258.75]],
+                'Batı': [[258.75, 281.25]],
+                'Batı-Kuzeybatı': [[281.25, 303.75]],
+                'Kuzeybatı': [[303.75, 326.25]],
+                'Kuzey-Kuzeybatı': [[326.25, 348.75]]
+            };
+
+            // Kuzey yönü için özel kontrol
+            if (derece >= 348.75 || derece <= 11.25) {
+                return 'Kuzey';
+            }
+
+            for (const [yon, araliklar] of Object.entries(yonler)) {
+                for (const aralik of araliklar) {
+                    if (derece >= aralik[0] && derece <= aralik[1]) {
+                        return yon;
+                    }
+                }
+            }
+            
+            return 'Bilinmeyen Yön';
+        }
+
+        async function updateWeatherAndMap(lat, lon) {
+            currentLat = lat;
+            currentLon = lon;
+            
+            try {
+                const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=tr`);
+                const data = await response.json();
+                
+                if (data.cod === 200) {
+                    // Hava durumu verilerini güncelle
+                    document.querySelector('.weather-location .value').textContent = `${data.name}`;
+                    document.querySelector('.weather-item:nth-child(2) .value').textContent = `${Math.round(data.main.temp)}°C`;
+                    document.querySelector('.weather-item:nth-child(3) .value').textContent = `${Math.round(data.main.feels_like)}°C`;
+                    document.querySelector('.weather-item:nth-child(4) .value').textContent = `${data.main.humidity}%`;
+                    document.querySelector('.weather-item:nth-child(5) .value').textContent = `${data.wind.speed} m/s`;
+                    document.querySelector('.weather-item:nth-child(6) .value').textContent = getRuzgarYonu(data.wind.deg);
+                    document.querySelector('.weather-item:nth-child(7) .value').textContent = data.weather[0].description;
+                    document.querySelector('.weather-item:nth-child(8) .value').textContent = `${data.main.pressure} hPa`;
+                }
+                
+                // Windy haritasını güncelle
+                updateWindyMap();
+                
+                return Promise.resolve();
+            } catch (error) {
+                console.error('Veri güncelleme hatası:', error);
+                return Promise.reject(error);
+            }
+        }
 
         // Windy iframe'inden mevcut konumu al
         function getCurrentMapPosition() {
@@ -501,26 +529,6 @@ if ($data === null || (isset($data['cod']) && $data['cod'] !== 200)) {
             // Yenileme zamanlayıcısını başlat
             setRefreshInterval(60);
         });
-
-        async function updateWeatherAndMap(lat, lon) {
-            currentLat = lat;
-            currentLon = lon;
-            
-            try {
-                // Hava durumu verilerini güncelle
-                const response = await fetch(`meteo_data.php?lat=${lat}&lon=${lon}`);
-                const data = await response.text();
-                document.getElementById('weather-data').innerHTML = data;
-                
-                // Windy haritasını güncelle
-                updateWindyMap();
-                
-                return Promise.resolve();
-            } catch (error) {
-                console.error('Veri güncelleme hatası:', error);
-                return Promise.reject(error);
-            }
-        }
 
         function updateWindyMap() {
             // Topografik harita için özel durum
