@@ -38,23 +38,32 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            width: 90%;
-            max-width: 600px;
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 10px;
         }
         .map-buttons {
             display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 5px;
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+            gap: 2px;
             background-color: rgba(255, 255, 255, 0.9);
-            padding: 5px;
+            padding: 3px;
             border-radius: 25px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            width: auto;
+        }
+        .map-buttons::-webkit-scrollbar {
+            display: none;
         }
         .map-button {
             position: relative;
-            width: 50px;
-            height: 50px;
+            min-width: 55px;
+            height: 55px;
             border: none;
             border-radius: 50%;
             background-color: transparent;
@@ -68,6 +77,7 @@
             justify-content: center;
             padding: 0;
             gap: 2px;
+            flex-shrink: 0;
         }
         .map-button[onclick="changeOverlay('fwi')"] {
             background-color: rgba(255, 99, 71, 0.1);
@@ -184,23 +194,29 @@
                 font-size: 12px;
             }
             .map-controls {
-                top: 5px;
-                width: 95%;
+                width: auto;
+                margin: 0 5px;
             }
             .map-buttons {
-                padding: 3px;
-                gap: 3px;
+                padding: 2px;
+                gap: 1px;
+                border-radius: 15px;
             }
             .map-button {
-                width: 40px;
-                height: 40px;
+                min-width: 35px;
+                height: 35px;
                 font-size: 12px;
+                gap: 1px;
             }
             .map-button i {
                 font-size: 14px;
             }
             .map-button span {
-                font-size: 8px;
+                display: none;
+            }
+            .map-button.active {
+                background-color: #4a90e2;
+                transform: scale(1.1);
             }
             .refresh-button {
                 width: 35px;
@@ -298,6 +314,60 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Lejant stilleri */
+        .legend-container {
+            position: absolute;
+            bottom: 200px;
+            left: 20px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-size: 12px;
+            display: none;
+            max-width: 200px;
+            transition: all 0.3s ease;
+        }
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 13px;
+        }
+        .legend-scale {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .legend-gradient {
+            height: 15px;
+            width: 150px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 150px;
+            color: #666;
+            font-size: 11px;
+        }
+        
+        /* Mobil için lejant düzenlemesi */
+        @media (max-width: 768px) {
+            .legend-container {
+                bottom: 200px;
+                left: 10px;
+                max-width: 150px;
+            }
+            .legend-gradient {
+                width: 120px;
+            }
+            .legend-labels {
+                width: 120px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -338,6 +408,30 @@
             <button class="map-button" onclick="changeOverlay('satellite')" title="Uydu">
                 <i class="fas fa-satellite"></i>
                 <span>Uydu</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('radar')" title="Radar">
+                <i class="fas fa-broadcast-tower"></i>
+                <span>Radar</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('pressure')" title="Basınç">
+                <i class="fas fa-compress-arrows-alt"></i>
+                <span>Basınç</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('dewpoint')" title="Çiy Noktası">
+                <i class="fas fa-droplet"></i>
+                <span>Çiy Noktası</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('thunder')" title="Fırtına">
+                <i class="fas fa-bolt"></i>
+                <span>Fırtına</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('efiTemp')" title="Ekstrem Değer">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Ekstrem</span>
+            </button>
+            <button class="map-button" onclick="changeOverlay('topoMap')" title="Topografik Harita">
+                <i class="fas fa-mountain"></i>
+                <span>Topografya</span>
             </button>
         </div>
     </div>
@@ -411,6 +505,177 @@
     </div>
 
     <div id="location-status">Konum bilgisi alınıyor...</div>
+
+    <!-- Lejant container'ları -->
+    <div id="legend-fwi" class="legend-container">
+        <div class="legend-title">Yangın Riski İndeksi</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #ffeb3b, #ff9800, #ff0000)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>Düşük</span>
+            <span>Orta</span>
+            <span>Yüksek</span>
+        </div>
+    </div>
+
+    <div id="legend-temp" class="legend-container">
+        <div class="legend-title">Sıcaklık (°C)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #0000ff, #00ff00, #ffff00, #ff0000)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>-20°C</span>
+            <span>20°C</span>
+            <span>40°C</span>
+        </div>
+    </div>
+
+    <div id="legend-wind" class="legend-container">
+        <div class="legend-title">Rüzgar Hızı (m/s)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #cccccc, #99ff00, #ffeb3b, #ff9800, #ff0000)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>25</span>
+            <span>50</span>
+        </div>
+    </div>
+
+    <div id="legend-rain" class="legend-container">
+        <div class="legend-title">Yağış (mm/saat)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #cccccc, #99ff00, #00ff00, #00bfff, #0000ff)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>5</span>
+            <span>10+</span>
+        </div>
+    </div>
+
+    <div id="legend-rainAccu" class="legend-container">
+        <div class="legend-title">Yağış Birikimi (mm)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #cccccc, #99ff00, #00ff00, #00bfff, #0000ff)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>50</span>
+            <span>100+</span>
+        </div>
+    </div>
+
+    <div id="legend-rh" class="legend-container">
+        <div class="legend-title">Bağıl Nem (%)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #cccccc, #00bfff, #00ffff, #40e0d0)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>50</span>
+            <span>100</span>
+        </div>
+    </div>
+
+    <div id="legend-waves" class="legend-container">
+        <div class="legend-title">Dalga Yüksekliği (m)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #0000ff, #4b0082, #800080)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>5</span>
+            <span>10+</span>
+        </div>
+    </div>
+
+    <div id="legend-drought40" class="legend-container">
+        <div class="legend-title">Kuraklık İndeksi</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #F1DF78, #ffa500, #780013)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>Normal</span>
+            <span>Orta</span>
+            <span>Şiddetli</span>
+        </div>
+    </div>
+
+    <div id="legend-soilMoisture" class="legend-container">
+        <div class="legend-title">Toprak Nemi (%)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #780013, #ffa500, #F1DF78)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>50</span>
+            <span>100</span>
+        </div>
+    </div>
+
+    <div id="legend-radar" class="legend-container">
+        <div class="legend-title">Radar Yağış (dBZ)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #87CEEB, #4169E1, #0000FF, #800080)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>5</span>
+            <span>30</span>
+            <span>55</span>
+            <span>80</span>
+        </div>
+    </div>
+
+    <div id="legend-pressure" class="legend-container">
+        <div class="legend-title">Basınç (hPa)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #4B0082, #0000FF, #00FF00, #FFFF00, #FF0000)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>980</span>
+            <span>1000</span>
+            <span>1020</span>
+        </div>
+    </div>
+
+    <div id="legend-dewpoint" class="legend-container">
+        <div class="legend-title">Çiy Noktası (°C)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #0000FF, #00FF00, #FFFF00, #FF0000)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>-10</span>
+            <span>10</span>
+            <span>30</span>
+        </div>
+    </div>
+
+    <div id="legend-thunder" class="legend-container">
+        <div class="legend-title">Fırtına Olasılığı (%)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #FFFFFF, #FFD700, #FFA500, #FF0000)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>50</span>
+            <span>100</span>
+        </div>
+    </div>
+
+    <div id="legend-topoMap" class="legend-container">
+        <div class="legend-title">Yükseklik (m)</div>
+        <div class="legend-scale">
+            <div class="legend-gradient" style="background: linear-gradient(to right, #006400, #90EE90, #DEB887, #8B4513)"></div>
+        </div>
+        <div class="legend-labels">
+            <span>0</span>
+            <span>1000</span>
+            <span>2000+</span>
+        </div>
+    </div>
+
     <iframe id="windy-map" class="windy-map" 
         src="https://embed.windy.com/embed2.html?lat=39.9237&lon=32.8067&zoom=8&level=surface&overlay=fwi&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=39.9237&detailLon=32.8067&metricWind=default&metricTemp=default&radarRange=-1" 
         frameborder="0">
@@ -445,9 +710,15 @@
     <script>
         const API_KEY = '8cf4e549867e95c800578f7c703f42b6';
         let currentOverlay = 'fwi';
-        let mapPosition = {
-            lat: 39.9237,  // Varsayılan konum (Ankara)
+        const DEFAULT_LOCATION = {
+            lat: 39.9237,  // Ankara
             lon: 32.8067,
+            name: 'Ankara',
+            country: 'TR'
+        };
+        let mapPosition = {
+            lat: DEFAULT_LOCATION.lat,
+            lon: DEFAULT_LOCATION.lon,
             zoom: 8
         };
         let refreshTimer = null;
@@ -499,7 +770,7 @@
                 
                 if (data.cod === 200) {
                     // Hava durumu verilerini güncelle
-                    document.querySelector('.weather-location .value').textContent = `${data.name}`;
+                    document.querySelector('.weather-location .value').textContent = data.name || DEFAULT_LOCATION.name;
                     document.querySelector('.weather-item:nth-child(2) .value').textContent = `${Math.round(data.main.temp)}°C`;
                     document.querySelector('.weather-item:nth-child(3) .value').textContent = `${Math.round(data.main.feels_like)}°C`;
                     document.querySelector('.weather-item:nth-child(4) .value').textContent = `${data.main.humidity}%`;
@@ -515,8 +786,21 @@
                 return Promise.resolve();
             } catch (error) {
                 console.error('Veri güncelleme hatası:', error);
+                // Hata durumunda varsayılan konumu kullan
+                useDefaultLocation();
                 return Promise.reject(error);
             }
+        }
+
+        function useDefaultLocation() {
+            currentLat = DEFAULT_LOCATION.lat;
+            currentLon = DEFAULT_LOCATION.lon;
+            document.querySelector('.weather-location .value').textContent = DEFAULT_LOCATION.name;
+            const locationStatus = document.getElementById('location-status');
+            if (locationStatus) {
+                locationStatus.innerHTML = `Konum alınamadı. Varsayılan konum kullanılıyor (${DEFAULT_LOCATION.name}).`;
+            }
+            updateWindyMap();
         }
 
         // Windy iframe'inden mevcut konumu al
@@ -538,6 +822,9 @@
         function changeOverlay(overlay) {
             currentOverlay = overlay;
             
+            // Son seçilen katmanı localStorage'a kaydet
+            localStorage.setItem('lastOverlay', overlay);
+            
             // Önce mevcut konumu al
             getCurrentMapPosition();
             
@@ -547,18 +834,54 @@
             });
             document.querySelector(`[onclick="changeOverlay('${overlay}')"]`).classList.add('active');
             
-            // Haritayı güncelle - mevcut konumu kullanarak
-            const baseMap = overlay === 'map' ? '&overlay=wind&map=topo' : `&overlay=${overlay}`;
-            const windyUrl = `https://embed.windy.com/embed2.html?lat=${mapPosition.lat || 39.9237}&lon=${mapPosition.lon || 32.8067}&zoom=${mapPosition.zoom || 8}&level=surface${baseMap}&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=${mapPosition.lat || 39.9237}&detailLon=${mapPosition.lon || 32.8067}&metricWind=default&metricTemp=default&radarRange=-1`;
+            // Tüm lejantları gizle
+            document.querySelectorAll('.legend-container').forEach(legend => {
+                legend.style.display = 'none';
+            });
             
-            const windyMap = document.getElementById('windy-map');
-            if (windyMap) {
-                windyMap.src = windyUrl;
+            // İlgili lejantı göster
+            let legendId = overlay;
+            if (overlay === 'drought40') {
+                // URL'den level parametresini kontrol et
+                const windyMap = document.getElementById('windy-map');
+                if (windyMap) {
+                    const url = new URL(windyMap.src);
+                    const level = url.searchParams.get('level');
+                    if (level === 'surface') {
+                        legendId = 'drought40';
+                    } else if (level === 'soilMoisture') {
+                        legendId = 'soilMoisture';
+                    }
+                }
             }
+            
+            const currentLegend = document.getElementById(`legend-${legendId}`);
+            if (currentLegend) {
+                currentLegend.style.display = 'block';
+            }
+            
+            // Haritayı güncelle
+            updateWindyMap();
         }
 
         // Sayfa yüklendiğinde çalışacak kod
         document.addEventListener('DOMContentLoaded', function() {
+            // localStorage'dan son seçilen katmanı al
+            const lastOverlay = localStorage.getItem('lastOverlay') || 'fwi';
+            currentOverlay = lastOverlay;
+
+            // Son seçilen katmanı aktif et
+            document.querySelectorAll('.map-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`[onclick="changeOverlay('${lastOverlay}')"]`)?.classList.add('active');
+
+            // İlgili lejantı göster
+            const defaultLegend = document.getElementById(`legend-${lastOverlay}`);
+            if (defaultLegend) {
+                defaultLegend.style.display = 'block';
+            }
+
             // İlk yükleme
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(function(position) {
@@ -574,16 +897,12 @@
                     
                     updateWeatherAndMap(lat, lon);
                 }, function(error) {
-                    const locationStatus = document.getElementById('location-status');
-                    if (locationStatus) {
-                        locationStatus.innerHTML = "Konum alınamadı. Varsayılan konum kullanılıyor (Beştepe).";
-                    }
+                    console.error('Konum alınamadı:', error);
+                    useDefaultLocation();
                 });
             } else {
-                const locationStatus = document.getElementById('location-status');
-                if (locationStatus) {
-                    locationStatus.innerHTML = "Tarayıcınız konum özelliğini desteklemiyor. Varsayılan konum kullanılıyor (Beştepe).";
-                }
+                console.log('Tarayıcı konum özelliğini desteklemiyor');
+                useDefaultLocation();
             }
 
             // Yenileme zamanlayıcısını başlat
@@ -592,9 +911,13 @@
 
         function updateWindyMap() {
             // Topografik harita için özel durum
-            const baseMap = currentOverlay === 'map' ? '&overlay=wind&map=topo' : `&overlay=${currentOverlay}`;
-            
-            const windyUrl = `https://embed.windy.com/embed2.html?lat=${currentLat}&lon=${currentLon}&zoom=8&level=surface${baseMap}&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=${currentLat}&detailLon=${currentLon}&metricWind=default&metricTemp=default&radarRange=-1`;
+            let windyUrl;
+            if (currentOverlay === 'topoMap') {
+                windyUrl = `https://embed.windy.com/embed2.html?lat=${currentLat}&lon=${currentLon}&zoom=8&level=surface&overlay=wind&menu=true&message=&marker=true&calendar=true&pressure=&type=map&map=topo&location=coordinates&detail=&detailLat=${currentLat}&detailLon=${currentLon}&metricWind=default&metricTemp=default&radarRange=-1`;
+            } else {
+                const baseMap = `&overlay=${currentOverlay}`;
+                windyUrl = `https://embed.windy.com/embed2.html?lat=${currentLat}&lon=${currentLon}&zoom=8&level=surface${baseMap}&menu=true&message=&marker=true&calendar=true&pressure=&type=map&location=coordinates&detail=&detailLat=${currentLat}&detailLon=${currentLon}&metricWind=default&metricTemp=default&radarRange=-1`;
+            }
             document.getElementById('windy-map').src = windyUrl;
         }
 
